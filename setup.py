@@ -1,10 +1,17 @@
+"""
+mne-frequency-tagging
+analyze electrophysiological data from frequency tagging experiments using mne-python
+
+Author: Dominik Welke <dominik.welke@web.de>
+"""
+
 import setuptools
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="mne-frequency-tagging", # Replace with your own username
+    name="mne-frequency-tagging",
     version="0.1",
     author="Dominik Welke",
     author_email="dominik.welke@web.de",
