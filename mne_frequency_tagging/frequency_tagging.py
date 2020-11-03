@@ -220,6 +220,69 @@ def plot_snr_topography(snrs_at_frequency, ch_names, montage=None, plot_montage=
     return fig, axes
 
 
+def plot_psd_spectrum(psds, freqs, fmin=None, fmax=None, plot_type='average', show=True):
+    # plot average psd plus/minus std.
+    # code snippets from:
+    # https://martinos.org/mne/stable/auto_examples/time_frequency/plot_compute_raw_data_spectrum.html
+
+    # get dimensionality of data
+    dimensionality = len(psds.shape)
+    if dimensionality > 3:
+        raise ValueError('PSD array has more that 3 dimensions. whats happening?')
+
+    # get indices of plotted values
+    if fmin is None:
+        fmin = np.nanmin(freqs)
+    if fmax is None:
+        fmax = np.nanmax(freqs)
+
+    rng = range(np.where(np.floor(freqs) == fmin + 1)[0][0],
+                np.where(np.ceil(freqs) == fmax - 1)[0][0])
+
+    # prepare figure
+    fig, axes = plt.subplots(1, 1, sharex='all', sharey='all', dpi=300)
+    # prepare psd (transform to db scale)
+    psds_plot = 10 * np.log10(psds)
+    if plot_type == 'average' and dimensionality > 1:
+        # get mean and std
+        if dimensionality == 3:
+            psds_mean = psds_plot.mean((0, 1))[rng]
+            psds_std = psds_plot.std((0, 1))[rng]
+        else:
+            psds_mean = psds_plot.mean(axis=0)[rng]
+            psds_std = psds_plot.std(axis=0)[rng]
+        # plot
+        axes.plot(freqs[rng], psds_mean, color='b')
+        axes.fill_between(freqs[rng], psds_mean - psds_std, psds_mean + psds_std,
+                          color='b', alpha=.5)
+        axes.set(title="PSD spectrum (average +- std)", xlabel='Frequency [Hz]',
+                 ylabel='Power Spectral Density [dB]')
+        plt.xlim([fmin, fmax])
+    else:
+        # plot
+        if dimensionality == 1:
+            axes.plot(freqs[rng], psds_plot[rng], color='b')
+        elif dimensionality == 2:
+            axes.plot(
+                freqs[rng],
+                psds_plot[:, rng].T,
+                color='b', alpha=.5)
+        else:
+            axes.plot(
+                freqs[rng],
+                psds_plot.reshape(psds_plot.shape[0]*psds_plot.shape[1], psds_plot.shape[2])[:,rng].T,
+                color='b', alpha=.5)
+        axes.set(title="PSD spectrum (individual channels/trials)", xlabel='Frequency [Hz]',
+                 ylabel='Power Spectral Density [dB]')
+        plt.xlim([fmin, fmax])
+
+    # show plot or not?
+    if show:
+        fig.show()
+
+    return fig, axes
+
+
 def _make_montage(montage, verbose=False):
     if montage is None:  # take default 10-20 montage
         montage = mne.channels.make_standard_montage(
@@ -273,6 +336,9 @@ class FtSpectra:
             raise Warning('could not compute SNR spectrum. PSD and/or frequency bins missing')
 
     # plots
+    def plot_psd_spectrum(self, fmin=None, fmax=None, show=True):
+        return plot_psd_spectrum(self.psd, self.frequency_bins,fmin=fmin, fmax=fmax, show=show)
+
     def plot_snr_spectrum(self, bg_var_trials=False, bg_var_channels=False, show=True):
         if self.snr is not None:
             return plot_snr_spectrum(
@@ -286,10 +352,3 @@ class FtSpectra:
         plot_snr_topography(
             snrs_at_frequency, self.info['ch_names'], montage=self.info['montage'],
             plot_montage=plot_montage, show=show, verbose=verbose)
-
-    def plot_psd_spectrum(self, show=True):
-        fig, ax = plt.subplots()
-        plt.plot(self.frequency_bins, self.psd)
-        if show:
-            fig.show()
-        return fig, ax
